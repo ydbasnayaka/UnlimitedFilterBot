@@ -1,195 +1,22 @@
-#!/usr/bin/env python
-#
-# A library that provides a Python interface to the Telegram Bot API
-# Copyright (C) 2015-2022
-# Leandro Toledo de Souza <devs@python-telegram-bot.org>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Lesser Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Lesser Public License for more details.
-#
-# You should have received a copy of the GNU Lesser Public License
-# along with this program.  If not, see [http://www.gnu.org/licenses/].
-# pylint: disable=C0112, C0103, W0221
-"""This module contains the Filters for use with the MessageHandler class."""
-
-import re
-import warnings
-
-from abc import ABC, abstractmethod
-from sys import version_info as py_ver
-from threading import Lock
-from typing import (
-    Dict,
-    FrozenSet,
-    List,
-    Match,
-    Optional,
-    Pattern,
-    Set,
-    Tuple,
-    Union,
-    cast,
-    NoReturn,
-)
-
 from telegram import Chat, Message, MessageEntity, Update, User
 from telegram.ext import Filters, BaseFilter, MessageFilter, UpdateFilter, InvertedFilter, MergedFilter, XORFilter
 
 from tg_bot import SUPPORT_USERS, SUDO_USERS
 
-__all__ = [
-    'Filters',
-    'BaseFilter',
-    'MessageFilter',
-    'UpdateFilter',
-    'InvertedFilter',
-    'MergedFilter',
-    'XORFilter',
-]
 
-from telegram.utils.deprecate import TelegramDeprecationWarning, set_new_attribute_deprecated
-from telegram.utils.types import SLT
+class CustomFilters(object):
+    class _Supporters(BaseFilter):
+        def filter(self, message: Message):
+            return bool(message.from_user and message.from_user.id in SUPPORT_USERS)
 
-DataDict = Dict[str, list]
+    support_filter = _Supporters()
 
+    class _Sudoers(BaseFilter):
+        def filter(self, message: Message):
+            return bool(message.from_user and message.from_user.id in SUDO_USERS)
 
-class BaseFilter(ABC):
-    """Base class for all Filters.
-
-    Filters subclassing from this class can combined using bitwise operators:
-
-    And:
-
-        >>> (Filters.text & Filters.entity(MENTION))
-
-    Or:
-
-        >>> (Filters.audio | Filters.video)
-
-    Exclusive Or:
-
-        >>> (Filters.regex('To Be') ^ Filters.regex('Not 2B'))
-
-    Not:
-
-        >>> ~ Filters.command
-
-    Also works with more than two filters:
-
-        >>> (Filters.text & (Filters.entity(URL) | Filters.entity(TEXT_LINK)))
-        >>> Filters.text & (~ Filters.forwarded)
-
-    Note:
-        Filters use the same short circuiting logic as python's `and`, `or` and `not`.
-        This means that for example:
-
-            >>> Filters.regex(r'(a?x)') | Filters.regex(r'(b?x)')
-
-        With ``message.text == x``, will only ever return the matches for the first filter,
-        since the second one is never evaluated.
-
-
-    If you want to create your own filters create a class inheriting from either
-    :class:`MessageFilter` or :class:`UpdateFilter` and implement a :meth:`filter` method that
-    returns a boolean: :obj:`True` if the message should be
-    handled, :obj:`False` otherwise.
-    Note that the filters work only as class instances, not
-    actual class objects (so remember to
-    initialize your filter classes).
-
-    By default the filters name (what will get printed when converted to a string for display)
-    will be the class name. If you want to overwrite this assign a better name to the :attr:`name`
-    class variable.
-
-    Attributes:
-        name (:obj:`str`): Name for this filter. Defaults to the type of filter.
-        data_filter (:obj:`bool`): Whether this filter is a data filter. A data filter should
-            return a dict with lists. The dict will be merged with
-            :class:`telegram.ext.CallbackContext`'s internal dict in most cases
-            (depends on the handler).
-    """
-
-    if py_ver < (3, 7):
-        __slots__ = ('_name', '_data_filter')
-    else:
-        __slots__ = ('_name', '_data_filter', '__dict__')  # type: ignore[assignment]
-
-    def __new__(cls, *args: object, **kwargs: object) -> 'BaseFilter':  # pylint: disable=W0613
-        instance = super().__new__(cls)
-        instance._name = None
-        instance._data_filter = False
-
-        return instance
-
-    @abstractmethod
-    def __call__(self, update: Update) -> Optional[Union[bool, DataDict]]:
-        ...
-
-    def __and__(self, other: 'BaseFilter') -> 'BaseFilter':
-        return MergedFilter(self, and_filter=other)
-
-    def __or__(self, other: 'BaseFilter') -> 'BaseFilter':
-        return MergedFilter(self, or_filter=other)
-
-    def __xor__(self, other: 'BaseFilter') -> 'BaseFilter':
-        return XORFilter(self, other)
-
-    def __invert__(self) -> 'BaseFilter':
-        return InvertedFilter(self)
-
-    def __setattr__(self, key: str, value: object) -> None:
-        # Allow setting custom attributes w/o warning for user defined custom filters.
-        # To differentiate between a custom and a PTB filter, we use this hacky but
-        # simple way of checking the module name where the class is defined from.
-        if (
-            issubclass(self.__class__, (UpdateFilter, MessageFilter))
-            and self.__class__.__module__ != __name__
-        ):  # __name__ is telegram.ext.filters
-            object.__setattr__(self, key, value)
-            return
-        set_new_attribute_deprecated(self, key, value)
-
-    @property
-    def data_filter(self) -> bool:
-        return self._data_filter
-
-    @data_filter.setter
-    def data_filter(self, value: bool) -> None:
-        self._data_filter = value
-
-    @property
-    def name(self) -> Optional[str]:
-        return self._name
-
-    @name.setter
-    def name(self, name: Optional[str]) -> None:
-        self._name = name  # pylint: disable=E0237
-
-    def __repr__(self) -> str:
-        # We do this here instead of in a __init__ so filter don't have to call __init__ or super()
-        if self.name is None:
-            self.name = self.__class__.__name__
-        return self.name
-
-class _Supporters(BaseFilter):
-    def filter(self, message: Message):
-        return bool(message.from_user and message.from_user.id in SUPPORT_USERS)
-        
-support_filter = _Supporters()
-
-class _Sudoers(BaseFilter):
-    def filter(self, message: Message):
-        return bool(message.from_user and message.from_user.id in SUDO_USERS)
-    
-sudo_filter = _Sudoers()    
-            
+    sudo_filter = _Sudoers()
+                
 class MessageFilter(BaseFilter):
     """Base class for all Message Filters. In contrast to :class:`UpdateFilter`, the object passed
     to :meth:`filter` is ``update.effective_message``.
