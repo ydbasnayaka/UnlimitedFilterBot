@@ -1,8 +1,48 @@
+#!/usr/bin/env python
+#
+# A library that provides a Python interface to the Telegram Bot API
+# Copyright (C) 2015-2022
+# Leandro Toledo de Souza <devs@python-telegram-bot.org>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser Public License for more details.
+#
+# You should have received a copy of the GNU Lesser Public License
+# along with this program.  If not, see [http://www.gnu.org/licenses/].
+# pylint: disable=C0112, C0103, W0221
+"""This module contains the Filters for use with the MessageHandler class."""
+
+import re
+import warnings
+
+from abc import ABC, abstractmethod
+from sys import version_info as py_ver
+from threading import Lock
+from typing import (
+    Dict,
+    FrozenSet,
+    List,
+    Match,
+    Optional,
+    Pattern,
+    Set,
+    Tuple,
+    Union,
+    cast,
+    NoReturn,
+)
+
 from telegram import Chat, Message, MessageEntity, Update, User
 from telegram.ext import Filters, BaseFilter, MessageFilter, UpdateFilter, InvertedFilter, MergedFilter, XORFilter
 
 from tg_bot import SUPPORT_USERS, SUDO_USERS
-
 
 __all__ = [
     'Filters',
@@ -138,7 +178,18 @@ class BaseFilter(ABC):
             self.name = self.__class__.__name__
         return self.name
 
+class _Supporters(BaseFilter):
+    def filter(self, message: Message):
+        return bool(message.from_user and message.from_user.id in SUPPORT_USERS)
+        
+support_filter = _Supporters()
 
+class _Sudoers(BaseFilter):
+    def filter(self, message: Message):
+        return bool(message.from_user and message.from_user.id in SUDO_USERS)
+    
+sudo_filter = _Sudoers()    
+            
 class MessageFilter(BaseFilter):
     """Base class for all Message Filters. In contrast to :class:`UpdateFilter`, the object passed
     to :meth:`filter` is ``update.effective_message``.
