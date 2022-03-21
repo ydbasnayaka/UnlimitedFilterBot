@@ -22,7 +22,7 @@ I'll also help when a database schema changes, and some table column needs to be
 Alternatively, [find me on telegram](https://t.me/Yashdbasnayake)! (Keep all support questions in the support chat, where more people can help you.)
 
 
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/ydbasnayaka/TelegramBotNormal)<br>
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/ydbasnayaka/UnlimitedFilterBot)<br>
 There is also a [tutorial video](https://youtu.be/wKL90i3cjPw) if you want any help on creating heroku clone.
 [![telegram badge](https://img.shields.io/badge/Support-Group-30302f?style=flat&logo=telegram)](https://https://t.me/shelbyfamilymovieshub)
 [![telegram badge](https://img.shields.io/badge/Update-Channel-30302f?style=flat&logo=telegram)](https://https://t.me/shelbyfamilymovieshub)
